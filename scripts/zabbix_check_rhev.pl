@@ -112,7 +112,6 @@ sub parse_options {
   print_help()		if defined $o_help;
   print_version()	if defined $o_version;
 
-  die "RHEV API Host is missing.\n" unless defined( $o_rhevm_host );
   die "Host or VM is missing.\n" unless ( defined $o_rhev_host || defined $o_rhev_vm);
 
   # Get username and password via parameters or via file
@@ -144,11 +143,16 @@ sub parse_options {
         $rhevm_pwd = $_; # =~ s/password=//;
         $rhevm_pwd =~ s/password=//;
         die "RHEV Password is missing.\n" unless ($rhevm_pwd);
+      }elsif ($_ =~ /^hostname=/){
+        $o_rhevm_host = $_; # =~ s/hostname=//;
+        $o_rhevm_host =~ s/hostname=//;
       }
     }
     close (AUTHFILE);
     die "Error getting values from auth file!\n" if (! $rhevm_user || ! $rhevm_pwd);
   }
+
+  die "RHEV API Host is missing.\n" unless defined( $o_rhevm_host );
 
   if (defined $o_ca_file){
     die "Can't read Certificate Authority file: $o_ca_file!\n" unless -r $o_ca_file;
@@ -193,6 +197,7 @@ Options:
     Format of file:
     username=Username\@Domain
     password=Password
+    hostname=hostname.of.ovirt.server
  --ca-file=CA_FILE
     Path to RHEV CA for SSL certificate verification
  -A, --api
