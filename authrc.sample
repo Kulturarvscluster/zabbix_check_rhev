@@ -1,0 +1,13 @@
+# Sample config file for authentication against
+# oVirt/RHEV REST-API
+#
+# Use 1 block per oVirt/RHEV management server
+#
+
+rhevm-hostname:
+  username: admin@internal
+  password: password
+  port: 443
+  api: /api
+  ca_file: path_to_ca_file
+  timeout: 15

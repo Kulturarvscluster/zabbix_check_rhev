@@ -6,7 +6,7 @@
 #                                                       #
 #  Version: 0.1.0                                       #
 #  Created: 2014-06-08                                  #
-#  Last Update: 2014-06-08                              #
+#  Last Update: 2014-07-28                              #
 #  License: GPLv3 - http://www.gnu.org/licenses         #
 #  Copyright: (c)2014 Zabbix check_rhev devlopment team #
 #  URL: https://github.com/ovido/zabbix_check_rhev      #
@@ -32,6 +32,7 @@ use LWP::UserAgent;
 use HTTP::Request;
 use Getopt::Long;
 use XML::Simple;
+use YAML::Syck;
 
 # for debugging only
 use Data::Dumper;
@@ -47,10 +48,10 @@ my $prog       = "zabbix_check_rhev";
 my $version    = "0.1.0";
 my $projecturl = "https://github.com/ovido/zabbix_check_rhev";
 my $cookie     = "/var/tmp";   # default path to cookie file
+my $auth_file  = "/tmp/.authrc";
 
-my ($o_rhevm_host, $o_rhevm_port, $rhevm_user, $rhevm_pwd, $o_ca_file, $o_auth, $o_auth_file) = undef;
-my ($o_help, $o_version, $o_timeout, $o_item) = undef;
-my ($o_rhev_host, $o_rhev_vm) = undef;
+my ($o_help, $o_version) = undef;
+my ($rhevm_host, $rhevm_user, $rhevm_pwd, $rhevm_ca) = undef;
 
 # possible items
 my @statistics = qw( 'memory.installed' 'memory.used' 'cpu.current.guest' 'cpu.current.hypervisor' 'cpu.current.total' );
@@ -62,14 +63,15 @@ my @statistics = qw( 'memory.installed' 'memory.used' 'cpu.current.guest' 'cpu.c
 # parse command line options
 parse_options();
 
-if (defined $o_rhev_vm){
+if ($ARGV[1] eq "vm"){
   # get vm id
-  my $id = get_result("/vms?search=name%3D$o_rhev_vm","vm","id");
+  my $id = get_result("/vms?search=name%3D$ARGV[2]","vm","id");
   # get item
-  my $item = get_result("/vms/$id/statistics", "statistic", $o_item);
+  my $item = get_result("/vms/$id/statistics", "statistic", $ARGV[3]);
   print $item . "\n";
   exit 0;
 }
+
 
 
 #----------------------------------------------------------------
@@ -95,67 +97,50 @@ sub parse_options {
   Getopt::Long::Configure ("bundling");
   GetOptions(
     'h' 	=> \$o_help,			'help' => \$o_help,
-    'H:s'	=> \$o_rhevm_host, 		'hostname:s' => \$o_rhevm_host,
-    'p:i'	=> \$o_rhevm_port, 		'port:i' => \$o_rhevm_port,
-    'A:s'	=> \$rhevm_api, 		'api:s' => \$rhevm_api,
     'V' 	=> \$o_version,			'version' => \$o_version,
-    't:i'	=> \$rhevm_timeout,		'timeout:i' => \$rhevm_timeout,
-    'a:s'	=> \$o_auth,			'authorization:s' => \$o_auth,
-    'f:s'	=> \$o_auth_file,		'authfile:s' => \$o_auth_file,
-    'R:s' => \$o_rhev_host, 		'host:s' => \$o_rhev_host,
-    'M:s' => \$o_rhev_vm, 			'vm:s' => \$o_rhev_vm,
-    'i:s'	=> \$o_item, 			'item:s' => \$o_item,
-     								'ca-file:s' => \$o_ca_file,
   );
 
   # process options
   print_help()		if defined $o_help;
   print_version()	if defined $o_version;
 
-  die "Host or VM is missing.\n" unless ( defined $o_rhev_host || defined $o_rhev_vm);
-
-  # Get username and password via parameters or via file
-  # format must be username@domain:password
-  if (defined( $o_auth )){
-    my @auth = split(/:/, $o_auth);
-    die "RHEV Username/Domain is missing.\n" unless $auth[0];
-    die "RHEV Password is missing.\n" unless $auth[1];
-    $rhevm_user = $auth[0];
-    $rhevm_pwd = $auth[1];
-    my @tmp_auth = split(/@/, $auth[0]);
-    die "RHEV Username is missing.\n" unless $tmp_auth[0];
-    die "RHEV Domain is missing.\n" unless $tmp_auth[1];
-  }else{
-    die "Please provide credentials either via -a or -f option.\n" unless defined $o_auth_file;
-    # get auth from file
-    open (AUTHFILE, $o_auth_file) || die "Can't open auth file $o_auth_file!\n";
-    while (<AUTHFILE>){
-      # remove white spaces
-      $_ =~ s/\s+//g;
-      chomp $_;
-      if ($_ =~ /^username=/){
-        $rhevm_user = $_; # =~ s/username=//;
-        $rhevm_user =~ s/username=//;
-        my @tmp_auth = split(/@/, $rhevm_user);
-        die "RHEV Username is missing.\n" unless $tmp_auth[0];
-        die "RHEV Domain is missing.\n" unless $tmp_auth[1];
-      }elsif ($_ =~ /^password=/){
-        $rhevm_pwd = $_; # =~ s/password=//;
-        $rhevm_pwd =~ s/password=//;
-        die "RHEV Password is missing.\n" unless ($rhevm_pwd);
-      }elsif ($_ =~ /^hostname=/){
-        $o_rhevm_host = $_; # =~ s/hostname=//;
-        $o_rhevm_host =~ s/hostname=//;
-      }
-    }
-    close (AUTHFILE);
-    die "Error getting values from auth file!\n" if (! $rhevm_user || ! $rhevm_pwd);
+  die "Hostname of RHEV management server is missing.\n" 		unless defined $ARGV[0];
+  die "Component (datacenter|cluster|host|vm) is missing.\n" 	unless defined $ARGV[1];
+  die "Component search name is missing.\n"						unless defined $ARGV[2];
+  die "Component search key is missing.\n"						unless defined $ARGV[3];
+  
+  $rhevm_host = $ARGV[0];
+  
+  # validate output
+  if ($ARGV[1] ne "datacenter" && $ARGV[1] ne "cluster" && $ARGV[1] ne "host" && $ARGV[1] ne "vm"){
+  	die "Unsupported component: $ARGV[1].\n";
   }
 
-  die "RHEV API Host is missing.\n" unless defined( $o_rhevm_host );
+  # Get username and password from authrc file
+  # See authrc.sample for correct format
+  $YAML::Syck::ImplicitTyping = 1;
+  my $config = eval { LoadFile( $auth_file ) };
+  die "Failed to open/parse authrc file $auth_file.\n" if $@;
+  
+  # validate config file
+  # missing hostname
+  die "Hostname $rhevm_host not defined in authrc file $auth_file.\n"	unless defined $config->{ $rhevm_host };
+  # missing username
+  die "Missing RHEV Username.\n"	unless defined $config->{ $rhevm_host }{ 'username' };
+  my @tmp_auth = split(/@/, $config->{ $rhevm_host }{ 'username' });
+  die "RHEV Username is missing.\n" unless $tmp_auth[0];
+  die "RHEV Domain is missing.\n" unless $tmp_auth[1];
+  # missing password
+  die "RHEV Password is missing.\n" unless ($config->{ $rhevm_host }{ 'password' });
+  
+  $rhevm_user	 = $config->{ $rhevm_host }{ 'username' };
+  $rhevm_pwd 	 = $config->{ $rhevm_host }{ 'password' };
+  $rhevm_port	 = $config->{ $rhevm_host }{ 'port' }		if defined $config->{ $rhevm_host }{ 'port' };
+  $rhevm_api	 = $config->{ $rhevm_host }{ 'api' }		if defined $config->{ $rhevm_host }{ 'api' };
+  $rhevm_timeout = $config->{ $rhevm_host }{ 'timeout' }	if defined $config->{ $rhevm_host }{ 'timeout' };
 
-  if (defined $o_ca_file){
-    die "Can't read Certificate Authority file: $o_ca_file!\n" unless -r $o_ca_file;
+  if (defined $config->{ $rhevm_host }{ 'ca_file' }){
+    die "Can't read Certificate Authority file: $config->{ $rhevm_host }{ 'ca_file' }!\n" unless -r $config->{ $rhevm_host }{ 'ca_file' };
   }
 
 }
@@ -178,8 +163,7 @@ Print help text.
 sub print_help(){
   print "\nRed Hat Enterprise Virtualization checks for Zabbix version $version\n";
   print "GPLv3 license, (c)2014   - Zabbix check_rhev development team\n";
-  print "Usage: $0 -H <hostname> [-p <port>] -a <auth> | -f <authfile> [--ca-file <ca-file> \n";
-  print "       [-A <api>] [-t <timeout>] -R <rhev host> | -M <vm> -i <item> \n";
+  print "Usage: $0 <hostname> <component> <name> <key>\n";
   print <<EOT;
 
 Options:
@@ -187,30 +171,6 @@ Options:
     Print detailed help screen
  -V, --version
     Print version information
- -H, --hostname
-    Host name or IP Address of RHEV Manager
--p, --port=INTEGER
-    port number (default: $rhevm_port)
- -a, --authorization=AUTH_PAIR
-    Username\@domain:password required for login to REST-API
- -f, --authfile=AUTH_FILE
-    Format of file:
-    username=Username\@Domain
-    password=Password
-    hostname=hostname.of.ovirt.server
- --ca-file=CA_FILE
-    Path to RHEV CA for SSL certificate verification
- -A, --api
-    REST-API path (default: $rhevm_api)
- -t, --timeout=INTEGER
-    Seconds before connection times out (default: $rhevm_timeout)
- -R, --host
-    RHEV Hypervisor name
- -M, --vm
-    RHEV virtual machine name
- -i, --item
-    Item to fetch from REST API
-    see $projecturl or README for details
 
 Send email to rkoch\@rk-it.at if you have questions regarding use
 of this software. To submit patches of suggest improvements, send
@@ -268,7 +228,7 @@ Returns hash.
 sub rhev_connect{
 
   # construct URL
-  my $rhevm_url = "https://" . $o_rhevm_host . ":" . $rhevm_port . $rhevm_api . $_[0];
+  my $rhevm_url = "https://" . $rhevm_host . ":" . $rhevm_port . $rhevm_api . $_[0];
 
   # connect to REST-API
   my $ra = LWP::UserAgent->new();
@@ -277,16 +237,16 @@ sub rhev_connect{
      
   # handle no_proxy settings for old LWP::UserAgent versions
   if ((LWP::UserAgent->VERSION < 6.0) && (defined $ENV{no_proxy})){
-    if ($ENV{no_proxy} =~ $o_rhevm_host){
+    if ($ENV{no_proxy} =~ $rhevm_host){
       delete $ENV{https_proxy} if defined $ENV{https_proxy};
       delete $ENV{HTTPS_PROXY} if defined $ENV{HTTPS_PROXY};
     }
   }
 
   # SSL certificate verification
-  if (defined $o_ca_file){
+  if (defined $rhevm_ca){
     # check certificate
-    $ra->ssl_opts(verfiy_hostname => 1, SSL_ca_file => $o_ca_file);
+    $ra->ssl_opts(verfiy_hostname => 1, SSL_ca_file => $rhevm_ca);
   }else{
     # disable SSL certificate verification
     if (LWP::UserAgent->VERSION >= 6.0){
@@ -297,7 +257,7 @@ sub rhev_connect{
   my $rr = HTTP::Request->new(GET => $rhevm_url);
 
   # cookie authentication or basic auth
-  my $cf = `echo "$o_rhevm_host-$rhevm_user" | base64`;
+  my $cf = `echo "$rhevm_host-$rhevm_user" | base64`;
   chomp $cf;
   $rr->header('Prefer' => 'persistent-auth');
   my $re = undef;
@@ -370,12 +330,12 @@ sub rest_api_connect{
 
 
 #***************************************************#
-# Function get_result #
+# Function get_result                               #
 #---------------------------------------------------#
-# Get the requestet information from API. #
-# ARG1: API path #
-# ARG2: XML component #
-# ARG3: result #
+# Get the requestet information from API.           #
+# ARG1: API path                                    #
+# ARG2: XML component                               #
+# ARG3: result                                      #
 #***************************************************#
 
 sub get_result{
@@ -389,6 +349,5 @@ sub get_result{
     return $rref->{ $xml }{ $search };
   }
 }
-
 
 exit 0
