@@ -2,10 +2,10 @@
 
 #########################################################
 #                                                       #
-#  Name:    zabbix_check_rhev                           #
+#  Name:    zabbix_discover_rhev                        #
 #                                                       #
 #  Version: 0.1.0                                       #
-#  Created: 2014-06-08                                  #
+#  Created: 2014-07-28                                  #
 #  Last Update: 2014-09-15                              #
 #  License: GPLv3 - http://www.gnu.org/licenses         #
 #  Copyright: (c)2014 Zabbix check_rhev devlopment team #
@@ -26,7 +26,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 use strict;
 use Getopt::Long;
 
@@ -43,7 +42,7 @@ my $rhevm_api		= "/api";
 my $rhevm_port		= 443;
 
 # Variables
-my $prog       = "zabbix_check_rhev";
+my $prog       = "zabbix_discover_rhev";
 my $version    = "0.1.0";
 my $projecturl = "https://github.com/ovido/zabbix_check_rhev";
 my $cookie     = "/var/tmp";   # default path to cookie file
@@ -51,9 +50,6 @@ my $auth_file  = "/tmp/.authrc";
 
 my ($o_help, $o_version) = undef;
 my $config 	   = {};
-
-# possible items
-my @statistics = qw( 'memory.installed' 'memory.used' 'cpu.current.guest' 'cpu.current.hypervisor' 'cpu.current.total' );
 
 # create an empty oVirt::Zabbix element
 my $zabbix = oVirt::Zabbix->new();
@@ -67,18 +63,24 @@ parse_options();
 
 if ($ARGV[1] eq "vm"){
   # get vm id
-  my $id = eval { $zabbix->get_result( "config"		=> $config,
-  									  "path"		=> "/vms?search=name%3D$ARGV[2]",
-  									  "component"	=> "vm",
-  									  "item"		=> "id") };
-#  print $@;
-#  print Dumper $id;
-  # get item
-  my $item = $zabbix->get_result( "config"	=> $config,
-  										"path"		=> "/vms/$id/statistics",
-  										"component"	=> "statistic", 
-  										"item"		=> $ARGV[3]);
-  print $item . "\n";
+  my $vms = eval { $zabbix->get_vms( "config"		=> $config,
+  									  "path"		=> "/vms", ) };
+
+  # print JSON output
+  my $result = "{\n";
+  $result .= "\t\"data\":[\n\n";
+  foreach my $vm (keys %{ $vms }){
+  	$result .= "\t\t{\t\"{#VM.UUID}\":\"$vms->{ $vm }{ 'id' }\",";
+  	$result .= "\"{#VM.NAME}\":\"$vms->{ $vm }{ 'name' }\",";
+  	$result .= "\"{#DATACENTER.NAME}\":\"$vms->{ $vm }{ 'datacenter' }\",";
+  	$result .= "\"{#CLUSTER.NAME}\":\"$vms->{ $vm }{ 'cluster' }\"\t},\n";
+  }
+  chop $result;
+  chop $result;
+  $result .= "\n\t]\n";
+  $result .= "}\n";
+  
+  print $result;
   exit 0;
 }
 
@@ -116,8 +118,6 @@ sub parse_options {
 
   die "Hostname of RHEV management server is missing.\n" 		unless defined $ARGV[0];
   die "Component (datacenter|cluster|host|vm) is missing.\n" 	unless defined $ARGV[1];
-  die "Component search name is missing.\n"						unless defined $ARGV[2];
-  die "Component search key is missing.\n"						unless defined $ARGV[3];
   
   my $rhevm_host = $ARGV[0];
   
