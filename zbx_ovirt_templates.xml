@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <zabbix_export>
     <version>3.4</version>
-    <date>2018-04-23T13:53:51Z</date>
+    <date>2018-04-23T14:04:05Z</date>
     <groups>
         <group>
             <name>Ovirt Engines</name>
@@ -31,7 +31,7 @@
                     <type>0</type>
                     <snmp_community/>
                     <snmp_oid/>
-                    <key>ovirt.version[{$OVIRT_ENGINE}/api]</key>
+                    <key>ovirt.version[&quot;{$OVIRT_ENGINE}/api&quot;]</key>
                     <delay>1m</delay>
                     <history>7d</history>
                     <trends>0</trends>
@@ -68,119 +68,7 @@
                     <master_item/>
                 </item>
             </items>
-            <discovery_rules>
-                <discovery_rule>
-                    <name>Ovirt Clusters</name>
-                    <type>0</type>
-                    <snmp_community/>
-                    <snmp_oid/>
-                    <key>ovirt.cluster.discovery[{$OVIRT_ENGINE}]</key>
-                    <delay>1m</delay>
-                    <status>1</status>
-                    <allowed_hosts/>
-                    <snmpv3_contextname/>
-                    <snmpv3_securityname/>
-                    <snmpv3_securitylevel>0</snmpv3_securitylevel>
-                    <snmpv3_authprotocol>0</snmpv3_authprotocol>
-                    <snmpv3_authpassphrase/>
-                    <snmpv3_privprotocol>0</snmpv3_privprotocol>
-                    <snmpv3_privpassphrase/>
-                    <params/>
-                    <ipmi_sensor/>
-                    <authtype>0</authtype>
-                    <username/>
-                    <password/>
-                    <publickey/>
-                    <privatekey/>
-                    <port/>
-                    <filter>
-                        <evaltype>0</evaltype>
-                        <formula/>
-                        <conditions/>
-                    </filter>
-                    <lifetime>7d</lifetime>
-                    <description/>
-                    <item_prototypes/>
-                    <trigger_prototypes/>
-                    <graph_prototypes/>
-                    <host_prototypes/>
-                    <jmx_endpoint/>
-                </discovery_rule>
-                <discovery_rule>
-                    <name>Ovirt Hypervisors Discovery</name>
-                    <type>0</type>
-                    <snmp_community/>
-                    <snmp_oid/>
-                    <key>ovirt.hv.discovery[{$OVIRT_ENGINE}]</key>
-                    <delay>1m</delay>
-                    <status>1</status>
-                    <allowed_hosts/>
-                    <snmpv3_contextname/>
-                    <snmpv3_securityname/>
-                    <snmpv3_securitylevel>0</snmpv3_securitylevel>
-                    <snmpv3_authprotocol>0</snmpv3_authprotocol>
-                    <snmpv3_authpassphrase/>
-                    <snmpv3_privprotocol>0</snmpv3_privprotocol>
-                    <snmpv3_privpassphrase/>
-                    <params/>
-                    <ipmi_sensor/>
-                    <authtype>0</authtype>
-                    <username/>
-                    <password/>
-                    <publickey/>
-                    <privatekey/>
-                    <port/>
-                    <filter>
-                        <evaltype>0</evaltype>
-                        <formula/>
-                        <conditions/>
-                    </filter>
-                    <lifetime>7d</lifetime>
-                    <description/>
-                    <item_prototypes/>
-                    <trigger_prototypes/>
-                    <graph_prototypes/>
-                    <host_prototypes/>
-                    <jmx_endpoint/>
-                </discovery_rule>
-                <discovery_rule>
-                    <name>Ovirt VM discovery</name>
-                    <type>0</type>
-                    <snmp_community/>
-                    <snmp_oid/>
-                    <key>ovirt.vm.discovery[{$OVIRT_ENGINE}]</key>
-                    <delay>1m</delay>
-                    <status>1</status>
-                    <allowed_hosts/>
-                    <snmpv3_contextname/>
-                    <snmpv3_securityname/>
-                    <snmpv3_securitylevel>0</snmpv3_securitylevel>
-                    <snmpv3_authprotocol>0</snmpv3_authprotocol>
-                    <snmpv3_authpassphrase/>
-                    <snmpv3_privprotocol>0</snmpv3_privprotocol>
-                    <snmpv3_privpassphrase/>
-                    <params/>
-                    <ipmi_sensor/>
-                    <authtype>0</authtype>
-                    <username/>
-                    <password/>
-                    <publickey/>
-                    <privatekey/>
-                    <port/>
-                    <filter>
-                        <evaltype>0</evaltype>
-                        <formula/>
-                        <conditions/>
-                    </filter>
-                    <lifetime>7d</lifetime>
-                    <description/>
-                    <item_prototypes/>
-                    <trigger_prototypes/>
-                    <graph_prototypes/>
-                    <host_prototypes/>
-                    <jmx_endpoint/>
-                </discovery_rule>
-            </discovery_rules>
+            <discovery_rules/>
             <httptests/>
             <macros>
                 <macro>
@@ -211,7 +99,7 @@
                     <type>0</type>
                     <snmp_community/>
                     <snmp_oid/>
-                    <key>ovirt.hv.vm.num[{$OVIRT_ENGINE}/api,{HOST.NAME}]</key>
+                    <key>ovirt.hv.vm.num[&quot;{$OVIRT_ENGINE}/api&quot;,{HOST.NAME}]</key>
                     <delay>1m</delay>
                     <history>7d</history>
                     <trends>365d</trends>
@@ -262,7 +150,7 @@
     </templates>
     <triggers>
         <trigger>
-            <expression>{Template oVirt VmBalance:ovirt.hv.vm.num[{$OVIRT_ENGINE}/api,{HOST.NAME}].avg(5m)}&lt;5</expression>
+            <expression>{Template oVirt VmBalance:ovirt.hv.vm.num[&quot;{$OVIRT_ENGINE}/api&quot;,{HOST.NAME}].avg(5m)}&lt;5</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
             <name>Too few VMs running on {HOST.NAME}</name>
@@ -278,7 +166,7 @@
             <tags/>
         </trigger>
         <trigger>
-            <expression>{Template oVirt VmBalance:ovirt.hv.vm.num[{$OVIRT_ENGINE}/api,{HOST.NAME}].avg(5m)}&gt;25</expression>
+            <expression>{Template oVirt VmBalance:ovirt.hv.vm.num[&quot;{$OVIRT_ENGINE}/api&quot;,{HOST.NAME}].avg(5m)}&gt;25</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
             <name>Too many VMs running on {HOST.NAME}</name>
